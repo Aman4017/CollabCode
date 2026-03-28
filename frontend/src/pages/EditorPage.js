@@ -5,17 +5,6 @@ import Editor from '../components/Editor';
 import { initSocket } from '../socket';
 import ACTIONS from '../Actions';
 import { useLocation, useNavigate, Navigate, useParams } from 'react-router-dom';
-import peer from '../service/peer';
-
-const VideoPlayer = React.memo(({ stream, muted = false }) => {
-    const videoRef = useRef(null);
-    useEffect(() => {
-        if (videoRef.current) {
-            videoRef.current.srcObject = stream || null;
-        }
-    }, [stream]);
-    return <video ref={videoRef} autoPlay playsInline muted={muted} />;
-});
 
 const EditorPage = () => {
     const [socket, setSocket] = useState(null);
@@ -24,19 +13,15 @@ const EditorPage = () => {
     const reactNavigator = useNavigate();
     const { roomId } = useParams();
     const codeRef = useRef(null);
-    const myStreamRef = useRef(null);
 
     const [clients, setClients] = useState([]);
-    const [remoteSocketId, setRemoteSocketId] = useState(null);
-    const [myStream, setMyStream] = useState(null);
-    const [remoteStream, setRemoteStream] = useState(null);
+    const [messages, setMessages] = useState([]);
+    const [messageInput, setMessageInput] = useState('');
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const chatEndRef = useRef(null);
 
     const userName = location.state?.userName;
 
-    useEffect(() => { myStreamRef.current = myStream; }, [myStream]);
-
-    // Main socket connection — stable deps only
     useEffect(() => {
         if (!userName) return;
 
@@ -71,7 +56,6 @@ const EditorPage = () => {
             sock.on(ACTIONS.JOINED, ({ clients: clientList, userName: joinedUser, socketId }) => {
                 if (joinedUser !== userName) {
                     toast.success(`${joinedUser} joined the room.`);
-                    setRemoteSocketId(socketId);
                     sock.emit(ACTIONS.SYNC_CODE, {
                         code: codeRef.current,
                         socketId,
@@ -85,41 +69,8 @@ const EditorPage = () => {
                 setClients(prev => prev.filter(c => c.socketId !== socketId));
             });
 
-            // WebRTC signaling
-            sock.on('incoming-call', async ({ from, offer }) => {
-                setRemoteSocketId(from);
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({
-                        audio: true, video: true,
-                    });
-                    setMyStream(stream);
-                    const ans = await peer.getAnswer(offer);
-                    sock.emit('call-accepted', { to: from, ans });
-                } catch (err) {
-                    toast.error('Could not access camera/microphone');
-                }
-            });
-
-            sock.on('call-accepted', async ({ ans }) => {
-                await peer.setRemoteDescription(ans);
-                const stream = myStreamRef.current;
-                if (stream) {
-                    const senders = peer.peer.getSenders();
-                    for (const track of stream.getTracks()) {
-                        if (!senders.find(s => s.track === track)) {
-                            peer.peer.addTrack(track, stream);
-                        }
-                    }
-                }
-            });
-
-            sock.on('peer-nego-needed', async ({ from, offer }) => {
-                const ans = await peer.getAnswer(offer);
-                sock.emit('peer-nego-done', { to: from, ans });
-            });
-
-            sock.on('peer-nego-final', async ({ ans }) => {
-                await peer.setRemoteDescription(ans);
+            sock.on('chat-message', ({ message, userName: sender, timestamp }) => {
+                setMessages(prev => [...prev, { message, userName: sender, timestamp }]);
             });
         };
 
@@ -135,71 +86,25 @@ const EditorPage = () => {
         };
     }, [roomId, userName, reactNavigator]);
 
-    // Peer negotiation
+    // Auto-scroll chat on new messages
     useEffect(() => {
-        const handleNegoNeeded = async () => {
-            try {
-                const offer = await peer.getOffer();
-                if (socketRef.current) {
-                    socketRef.current.emit('peer-nego-needed', { offer, to: remoteSocketId });
-                }
-            } catch (err) {
-                console.error('Negotiation error:', err);
-            }
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
+
+    const sendMessage = () => {
+        const text = messageInput.trim();
+        if (!text || !socketRef.current) return;
+
+        const msg = {
+            message: text,
+            userName,
+            timestamp: Date.now(),
         };
 
-        peer.peer.addEventListener('negotiationneeded', handleNegoNeeded);
-        return () => {
-            peer.peer.removeEventListener('negotiationneeded', handleNegoNeeded);
-        };
-    }, [remoteSocketId]);
-
-    // Remote track listener
-    useEffect(() => {
-        const handleTrack = (ev) => {
-            setRemoteStream(ev.streams[0]);
-        };
-        peer.peer.addEventListener('track', handleTrack);
-        return () => {
-            peer.peer.removeEventListener('track', handleTrack);
-        };
-    }, []);
-
-    // Peer cleanup on unmount
-    useEffect(() => {
-        return () => {
-            if (myStreamRef.current) {
-                myStreamRef.current.getTracks().forEach(track => track.stop());
-            }
-            peer.reset();
-        };
-    }, []);
-
-    const handleCallUser = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: true, video: true,
-            });
-            setMyStream(stream);
-            const offer = await peer.getOffer();
-            if (socketRef.current) {
-                socketRef.current.emit('user-call', { to: remoteSocketId, offer });
-            }
-        } catch (err) {
-            toast.error('Could not access camera/microphone');
-        }
+        setMessages(prev => [...prev, msg]);
+        socketRef.current.emit('chat-message', { message: text });
+        setMessageInput('');
     };
-
-    const sendStreams = useCallback(() => {
-        if (myStream) {
-            const senders = peer.peer.getSenders();
-            for (const track of myStream.getTracks()) {
-                if (!senders.find(s => s.track === track)) {
-                    peer.peer.addTrack(track, myStream);
-                }
-            }
-        }
-    }, [myStream]);
 
     const handleCodeChange = useCallback((code) => {
         codeRef.current = code;
@@ -215,10 +120,12 @@ const EditorPage = () => {
     }
 
     function leaveRoom() {
-        if (myStreamRef.current) {
-            myStreamRef.current.getTracks().forEach(track => track.stop());
-        }
         reactNavigator('/');
+    }
+
+    function formatTime(ts) {
+        const d = new Date(ts);
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
     if (!location.state) {
@@ -243,32 +150,59 @@ const EditorPage = () => {
             )}
 
             <div className={`aside ${sidebarOpen ? 'open' : ''}`}>
-                <div className="asideInner">
+                <div className="asideHeader">
                     <div className="logo">
                         <img src="/Code Collab copy.png" alt="CodeCollab" />
                     </div>
-                    <h3>Connected</h3>
-                    <div className="clientList">
-                        {clients.map((client) => (
-                            <Client
-                                key={client.socketId}
-                                userName={client.userName}
-                            />
+                    <div className="connectedSection">
+                        <h3>Connected <span className="badge">{clients.length}</span></h3>
+                        <div className="clientList">
+                            {clients.map((client) => (
+                                <Client
+                                    key={client.socketId}
+                                    userName={client.userName}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="chatSection">
+                    <h3>Chat</h3>
+                    <div className="chatMessages">
+                        {messages.length === 0 && (
+                            <p className="chatEmpty">No messages yet. Say hello!</p>
+                        )}
+                        {messages.map((msg, i) => (
+                            <div
+                                key={i}
+                                className={`chatMsg ${msg.userName === userName ? 'own' : ''}`}
+                            >
+                                <div className="chatMsgHeader">
+                                    <span className="chatUser">{msg.userName}</span>
+                                    <span className="chatTime">{formatTime(msg.timestamp)}</span>
+                                </div>
+                                <span className="chatText">{msg.message}</span>
+                            </div>
                         ))}
+                        <div ref={chatEndRef} />
+                    </div>
+                    <div className="chatInputArea">
+                        <input
+                            type="text"
+                            className="chatInput"
+                            value={messageInput}
+                            onChange={(e) => setMessageInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                            placeholder="Type a message..."
+                        />
+                        <button className="btn chatSendBtn" onClick={sendMessage}>
+                            Send
+                        </button>
                     </div>
                 </div>
 
                 <div className="asideActions">
-                    {remoteSocketId && (
-                        <div className="callActions">
-                            <button className='btn callBtn' onClick={handleCallUser}>
-                                📞 Call
-                            </button>
-                            <button className='btn callBtn' onClick={sendStreams}>
-                                📤 Send
-                            </button>
-                        </div>
-                    )}
                     <button className='btn copyBtn' onClick={copyRoomID}>
                         Copy ROOM ID
                     </button>
@@ -284,22 +218,6 @@ const EditorPage = () => {
                     roomId={roomId}
                     onCodeChange={handleCodeChange}
                 />
-                {(myStream || remoteStream) && (
-                    <div className="player">
-                        {myStream && (
-                            <div className="playerWrapper">
-                                <VideoPlayer stream={myStream} muted={true} />
-                                <span className="playerLabel">You</span>
-                            </div>
-                        )}
-                        {remoteStream && (
-                            <div className="playerWrapper">
-                                <VideoPlayer stream={remoteStream} />
-                                <span className="playerLabel">Remote</span>
-                            </div>
-                        )}
-                    </div>
-                )}
             </div>
         </div>
     );

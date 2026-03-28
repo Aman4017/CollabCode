@@ -72,10 +72,7 @@ public class CollabWebSocketHandler extends TextWebSocketHandler {
                 case "join" -> handleJoin(sessionId, data);
                 case "code-change" -> handleCodeChange(sessionId, data);
                 case "sync-code" -> handleSyncCode(sessionId, data);
-                case "user-call" -> forwardToUser(data, "incoming-call", "to", "offer", sessionId);
-                case "call-accepted" -> forwardToUser(data, "call-accepted", "to", "ans", sessionId);
-                case "peer-nego-needed" -> forwardToUser(data, "peer-nego-needed", "to", "offer", sessionId);
-                case "peer-nego-done" -> forwardToUser(data, "peer-nego-final", "to", "ans", sessionId);
+                case "chat-message" -> handleChatMessage(sessionId, data);
                 default -> log.debug("Unknown message type: {}", type);
             }
         } catch (Exception e) {
@@ -181,23 +178,21 @@ public class CollabWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    private void forwardToUser(JsonNode data, String eventType,
-                               String targetField, String payloadField, String fromSessionId) {
+    private void handleChatMessage(String sessionId, JsonNode data) {
         if (data == null) return;
 
-        String targetId = data.hasNonNull(targetField) ? data.get(targetField).asText() : null;
-        if (targetId == null) return;
+        UserSession user = roomService.getUser(sessionId);
+        if (user == null) return;
 
-        WebSocketSession targetSession = sessionById.get(targetId);
-        if (targetSession == null || !targetSession.isOpen()) return;
+        String message = data.hasNonNull("message") ? data.get("message").asText().trim() : "";
+        if (message.isEmpty() || message.length() > 2000) return;
 
-        ObjectNode payload = mapper.createObjectNode();
-        payload.put("from", fromSessionId);
-        if (data.has(payloadField)) {
-            payload.set(payloadField, data.get(payloadField));
-        }
+        ObjectNode payload = mapper.createObjectNode()
+                .put("message", message)
+                .put("userName", user.getUserName())
+                .put("timestamp", System.currentTimeMillis());
 
-        sendEvent(targetSession, eventType, payload);
+        broadcastToRoom(user.getRoomId(), "chat-message", payload, sessionId);
     }
 
     private void broadcastToRoom(String roomId, String type, JsonNode data, String excludeSessionId) {

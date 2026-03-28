@@ -145,7 +145,7 @@
 
 .mainWrap {
     display: grid;
-    grid-template-columns: 240px 1fr;
+    grid-template-columns: 280px 1fr;
     height: 100vh;
     overflow: hidden;
 }
@@ -194,16 +194,16 @@
     flex-direction: column;
     height: 100vh;
     border-right: 1px solid var(--border-color);
-    overflow-y: auto;
+    overflow: hidden;
 }
 
-.asideInner {
-    flex: 1;
+.asideHeader {
+    flex-shrink: 0;
 }
 
 .logo {
-    padding-bottom: 16px;
-    margin-bottom: 16px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -212,25 +212,41 @@
 }
 
 .aside h3 {
-    font-size: 12px;
+    font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 1.5px;
     color: var(--text-secondary);
-    margin-bottom: 16px;
+    margin-bottom: 10px;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.badge {
+    background: var(--accent-purple);
+    color: var(--bg-primary);
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-weight: 700;
+}
+
+.connectedSection {
+    margin-bottom: 12px;
 }
 
 .clientList {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 6px;
 }
 
 .client {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 10px;
+    gap: 8px;
+    padding: 5px 8px;
     border-radius: var(--radius);
     transition: var(--transition);
 }
@@ -240,35 +256,137 @@
 }
 
 .userName {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
 }
+
+/* ============================================
+   CHAT
+   ============================================ */
+
+.chatSection {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--border-color);
+    padding-top: 12px;
+}
+
+.chatMessages {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px 0;
+    margin-bottom: 8px;
+}
+
+.chatEmpty {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-style: italic;
+    text-align: center;
+    margin-top: 20px;
+}
+
+.chatMsg {
+    display: flex;
+    flex-direction: column;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: var(--bg-primary);
+    max-width: 92%;
+    align-self: flex-start;
+}
+
+.chatMsg.own {
+    align-self: flex-end;
+    background: rgba(189, 147, 249, 0.15);
+    border: 1px solid rgba(189, 147, 249, 0.25);
+}
+
+.chatMsgHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 2px;
+}
+
+.chatUser {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--accent-cyan);
+}
+
+.chatMsg.own .chatUser {
+    color: var(--accent-purple);
+}
+
+.chatTime {
+    font-size: 9px;
+    color: var(--text-secondary);
+}
+
+.chatText {
+    font-size: 13px;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.chatInputArea {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.chatInput {
+    flex: 1;
+    padding: 8px 10px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+    min-width: 0;
+}
+
+.chatInput:focus {
+    border-color: var(--accent-purple);
+}
+
+.chatInput::placeholder {
+    color: var(--text-secondary);
+}
+
+.chatSendBtn {
+    background: var(--accent-purple);
+    color: var(--bg-primary);
+    padding: 8px 14px;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.chatSendBtn:hover {
+    background: #a77bfa;
+}
+
+/* ============================================
+   SIDEBAR ACTIONS
+   ============================================ */
 
 .asideActions {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding-top: 16px;
+    padding-top: 12px;
     border-top: 1px solid var(--border-color);
-}
-
-.callActions {
-    display: flex;
-    gap: 8px;
-}
-
-.callBtn {
-    flex: 1;
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
-    padding: 8px;
-    font-size: 12px;
-}
-
-.callBtn:hover {
-    background: var(--bg-hover);
-    border-color: var(--accent-cyan);
+    flex-shrink: 0;
 }
 
 .copyBtn {
@@ -431,68 +549,12 @@
 }
 
 /* ============================================
-   VIDEO PLAYERS
-   ============================================ */
-
-.player {
-    position: absolute;
-    top: 56px;
-    right: 12px;
-    z-index: 10;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.playerWrapper {
-    width: 180px;
-    height: 135px;
-    border-radius: var(--radius);
-    overflow: hidden;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-color);
-    position: relative;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-}
-
-.playerWrapper video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.playerLabel {
-    position: absolute;
-    bottom: 4px;
-    left: 6px;
-    font-size: 10px;
-    background: rgba(0, 0, 0, 0.6);
-    color: var(--text-primary);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-weight: 500;
-}
-
-/* ============================================
-   TOAST OVERRIDES
-   ============================================ */
-
-.Toastbar {
-    border-radius: var(--radius) !important;
-}
-
-/* ============================================
    RESPONSIVE
    ============================================ */
 
 @media (max-width: 900px) {
     .mainWrap {
-        grid-template-columns: 200px 1fr;
-    }
-
-    .playerWrapper {
-        width: 140px;
-        height: 105px;
+        grid-template-columns: 240px 1fr;
     }
 }
 
@@ -509,7 +571,7 @@
         position: fixed;
         left: 0;
         top: 0;
-        width: 260px;
+        width: 280px;
         height: 100vh;
         z-index: 150;
         transform: translateX(-100%);
@@ -524,17 +586,6 @@
 
     .editorToolbar {
         padding-left: 56px;
-    }
-
-    .player {
-        top: auto;
-        bottom: 170px;
-        right: 8px;
-    }
-
-    .playerWrapper {
-        width: 120px;
-        height: 90px;
     }
 
     .codeRunner {
@@ -558,14 +609,5 @@
 
     .runnerSection {
         min-height: 0;
-    }
-
-    .playerWrapper {
-        width: 100px;
-        height: 75px;
-    }
-
-    .player {
-        bottom: 210px;
     }
 }
