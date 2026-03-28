@@ -8,30 +8,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 @Service
 public class CompilerService {
 
-    private static final String PISTON_API_URL = "https://emkc.org/api/v2/piston/execute";
+    private static final String WANDBOX_API_URL = "https://wandbox.org/api/compile.json";
 
-    private static final Map<String, String> LANGUAGE_MAP = Map.of(
-            "python", "python",
-            "java", "java",
-            "cpp", "cpp",
-            "c", "c"
+    private static final Map<String, String> COMPILER_MAP = Map.of(
+            "python", "cpython-3.12.7",
+            "java", "openjdk-jdk-22+36",
+            "cpp", "gcc-13.2.0",
+            "c", "gcc-13.2.0-c"
     );
 
-    private static final Map<String, String> VERSION_MAP = Map.of(
-            "python", "3.10.0",
-            "java", "15.0.2",
-            "cpp", "10.2.0",
-            "c", "10.2.0"
-    );
-
-    private static final Set<String> SUPPORTED_LANGUAGES = LANGUAGE_MAP.keySet();
+    private static final Set<String> SUPPORTED_LANGUAGES = COMPILER_MAP.keySet();
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -50,10 +42,11 @@ public class CompilerService {
         }
 
         try {
+            String compiler = COMPILER_MAP.get(language);
+
             Map<String, Object> requestBody = Map.of(
-                    "language", LANGUAGE_MAP.get(language),
-                    "version", VERSION_MAP.get(language),
-                    "files", List.of(Map.of("content", code)),
+                    "code", code,
+                    "compiler", compiler,
                     "stdin", input != null ? input : ""
             );
 
@@ -64,23 +57,42 @@ public class CompilerService {
                     objectMapper.writeValueAsString(requestBody), headers);
 
             ResponseEntity<String> response = restTemplate.exchange(
-                    PISTON_API_URL, HttpMethod.POST, entity, String.class);
+                    WANDBOX_API_URL, HttpMethod.POST, entity, String.class);
 
             String body = response.getBody();
             if (body == null) return "Error: Empty response from compiler service";
 
             JsonNode root = objectMapper.readTree(body);
-            JsonNode run = root.get("run");
 
-            if (run != null) {
-                String stdout = run.has("stdout") ? run.get("stdout").asText() : "";
-                String stderr = run.has("stderr") ? run.get("stderr").asText() : "";
-                return stderr.isEmpty() ? stdout : stdout + "\n" + stderr;
+            String compilerError = getField(root, "compiler_error");
+            String programOutput = getField(root, "program_output");
+            String programError = getField(root, "program_error");
+
+            if (!compilerError.isEmpty()) {
+                return compilerError;
             }
 
-            return "Execution failed: No output received";
+            if (!programOutput.isEmpty() && !programError.isEmpty()) {
+                return programOutput + "\n" + programError;
+            }
+
+            if (!programOutput.isEmpty()) {
+                return programOutput;
+            }
+
+            if (!programError.isEmpty()) {
+                return programError;
+            }
+
+            String status = getField(root, "status");
+            return status.equals("0") ? "Program executed successfully (no output)" : "Exit code: " + status;
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
+    }
+
+    private String getField(JsonNode root, String field) {
+        return root.has(field) && !root.get(field).isNull()
+                ? root.get(field).asText() : "";
     }
 }
