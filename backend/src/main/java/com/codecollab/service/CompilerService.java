@@ -2,12 +2,15 @@ package com.codecollab.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class CompilerService {
@@ -28,17 +31,28 @@ public class CompilerService {
             "c", "10.2.0"
     );
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private static final Set<String> SUPPORTED_LANGUAGES = LANGUAGE_MAP.keySet();
+
+    private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public String compile(String code, String input, String language) {
-        try {
-            String pistonLang = LANGUAGE_MAP.getOrDefault(language, language);
-            String version = VERSION_MAP.getOrDefault(language, "*");
+    public CompilerService(RestTemplateBuilder restTemplateBuilder) {
+        this.restTemplate = restTemplateBuilder
+                .setConnectTimeout(Duration.ofSeconds(10))
+                .setReadTimeout(Duration.ofSeconds(30))
+                .build();
+    }
 
+    public String compile(String code, String input, String language) {
+        if (!SUPPORTED_LANGUAGES.contains(language)) {
+            return "Error: Unsupported language '" + language + "'. Supported: " +
+                    String.join(", ", SUPPORTED_LANGUAGES);
+        }
+
+        try {
             Map<String, Object> requestBody = Map.of(
-                    "language", pistonLang,
-                    "version", version,
+                    "language", LANGUAGE_MAP.get(language),
+                    "version", VERSION_MAP.get(language),
                     "files", List.of(Map.of("content", code)),
                     "stdin", input != null ? input : ""
             );
@@ -52,7 +66,10 @@ public class CompilerService {
             ResponseEntity<String> response = restTemplate.exchange(
                     PISTON_API_URL, HttpMethod.POST, entity, String.class);
 
-            JsonNode root = objectMapper.readTree(response.getBody());
+            String body = response.getBody();
+            if (body == null) return "Error: Empty response from compiler service";
+
+            JsonNode root = objectMapper.readTree(body);
             JsonNode run = root.get("run");
 
             if (run != null) {

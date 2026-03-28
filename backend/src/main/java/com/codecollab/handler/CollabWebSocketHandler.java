@@ -29,7 +29,6 @@ public class CollabWebSocketHandler extends TextWebSocketHandler {
     private final RoomService roomService;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    // Maps our generated sessionId <-> WebSocketSession
     private final Map<String, WebSocketSession> sessionById = new ConcurrentHashMap<>();
     private final Map<String, String> wsToSessionId = new ConcurrentHashMap<>();
 
@@ -53,23 +52,34 @@ public class CollabWebSocketHandler extends TextWebSocketHandler {
     }
 
     @Override
-    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) {
         String sessionId = wsToSessionId.get(session.getId());
         if (sessionId == null) return;
 
-        JsonNode msg = mapper.readTree(message.getPayload());
+        JsonNode msg;
+        try {
+            msg = mapper.readTree(message.getPayload());
+        } catch (Exception e) {
+            log.warn("Invalid JSON from session {}", sessionId);
+            return;
+        }
+
         String type = msg.has("type") ? msg.get("type").asText() : "";
         JsonNode data = msg.get("data");
 
-        switch (type) {
-            case "join" -> handleJoin(sessionId, data);
-            case "code-change" -> handleCodeChange(sessionId, data);
-            case "sync-code" -> handleSyncCode(sessionId, data);
-            case "user-call" -> forwardToUser(data, "incomming-call", "to", "offer", sessionId);
-            case "call-accepted" -> forwardToUser(data, "call-accepted", "to", "ans", sessionId);
-            case "peer-nego-needed" -> forwardToUser(data, "peer-nego-needed", "to", "offer", sessionId);
-            case "peer-nego-done" -> forwardToUser(data, "peer-nego-final", "to", "ans", sessionId);
-            default -> log.warn("Unknown message type: {}", type);
+        try {
+            switch (type) {
+                case "join" -> handleJoin(sessionId, data);
+                case "code-change" -> handleCodeChange(sessionId, data);
+                case "sync-code" -> handleSyncCode(sessionId, data);
+                case "user-call" -> forwardToUser(data, "incoming-call", "to", "offer", sessionId);
+                case "call-accepted" -> forwardToUser(data, "call-accepted", "to", "ans", sessionId);
+                case "peer-nego-needed" -> forwardToUser(data, "peer-nego-needed", "to", "offer", sessionId);
+                case "peer-nego-done" -> forwardToUser(data, "peer-nego-final", "to", "ans", sessionId);
+                default -> log.debug("Unknown message type: {}", type);
+            }
+        } catch (Exception e) {
+            log.error("Error handling '{}' from session {}", type, sessionId, e);
         }
     }
 
@@ -92,11 +102,27 @@ public class CollabWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void handleJoin(String sessionId, JsonNode data) {
+        if (data == null || !data.hasNonNull("roomId")) {
+            log.warn("Invalid join data from {}", sessionId);
+            return;
+        }
+
         String roomId = data.get("roomId").asText();
-        String userName = data.has("userName") && !data.get("userName").isNull()
+        String userName = data.hasNonNull("userName")
                 ? data.get("userName").asText() : "Anonymous";
 
-        roomService.addUser(sessionId, userName, roomId);
+        List<String> removedIds = roomService.addUser(sessionId, userName, roomId);
+
+        for (String removedId : removedIds) {
+            WebSocketSession oldSession = sessionById.remove(removedId);
+            if (oldSession != null && oldSession.isOpen()) {
+                try {
+                    oldSession.close(CloseStatus.NORMAL);
+                } catch (IOException ignored) {
+                }
+            }
+            log.info("Removed duplicate session {} for user '{}'", removedId, userName);
+        }
 
         List<UserSession> users = roomService.getRoomUsers(roomId);
         ArrayNode clients = mapper.createArrayNode();
@@ -112,10 +138,22 @@ public class CollabWebSocketHandler extends TextWebSocketHandler {
         payload.put("socketId", sessionId);
 
         broadcastToRoom(roomId, "joined", payload, null);
+
+        String storedCode = roomService.getCode(roomId);
+        if (storedCode != null) {
+            WebSocketSession joinerSession = sessionById.get(sessionId);
+            if (joinerSession != null && joinerSession.isOpen()) {
+                sendEvent(joinerSession, "code-change",
+                        mapper.createObjectNode().put("code", storedCode));
+            }
+        }
+
         log.info("User '{}' joined room '{}'", userName, roomId);
     }
 
     private void handleCodeChange(String sessionId, JsonNode data) {
+        if (data == null) return;
+
         UserSession user = roomService.getUser(sessionId);
         if (user == null) return;
 
@@ -127,27 +165,27 @@ public class CollabWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void handleSyncCode(String sessionId, JsonNode data) {
-        String targetSocketId = data.has("socketId") ? data.get("socketId").asText() : null;
-        if (targetSocketId == null) return;
+        if (data == null) return;
+
+        String targetSocketId = data.hasNonNull("socketId")
+                ? data.get("socketId").asText() : null;
+        if (targetSocketId == null || targetSocketId.equals(sessionId)) return;
 
         WebSocketSession targetSession = sessionById.get(targetSocketId);
         if (targetSession == null || !targetSession.isOpen()) return;
 
-        String code = data.has("code") && !data.get("code").isNull()
-                ? data.get("code").asText() : null;
-
+        String code = data.hasNonNull("code") ? data.get("code").asText() : null;
         if (code != null) {
             sendEvent(targetSession, "code-change",
                     mapper.createObjectNode().put("code", code));
         }
     }
 
-    /**
-     * Forward a WebRTC signaling message to a specific user.
-     */
     private void forwardToUser(JsonNode data, String eventType,
                                String targetField, String payloadField, String fromSessionId) {
-        String targetId = data.has(targetField) ? data.get(targetField).asText() : null;
+        if (data == null) return;
+
+        String targetId = data.hasNonNull(targetField) ? data.get(targetField).asText() : null;
         if (targetId == null) return;
 
         WebSocketSession targetSession = sessionById.get(targetId);

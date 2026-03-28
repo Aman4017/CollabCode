@@ -17,7 +17,13 @@ public class CompilerController {
     }
 
     @PostMapping("/compile")
-    public ResponseEntity<Map<String, String>> compile(@RequestBody Map<String, String> request) {
+    public ResponseEntity<Map<String, String>> compile(
+            @RequestBody(required = false) Map<String, String> request) {
+        if (request == null) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("output", "Error: Request body is required"));
+        }
+
         String code = request.getOrDefault("code", "");
         String input = request.getOrDefault("input", "");
         String language = request.getOrDefault("language", "python");
