@@ -96,7 +96,7 @@ class SocketWrapper {
 }
 
 export const initSocket = async () => {
-    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080';
+    const backendUrl = (process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080').replace(/\/+$/, '');
     const wsUrl = backendUrl.replace(/^http/, 'ws') + '/ws';
 
     return new Promise((resolve, reject) => {

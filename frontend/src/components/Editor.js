@@ -84,7 +84,7 @@ const Editor = ({ socket, roomId, onCodeChange }) => {
     const handleCompile = async () => {
         if (!editorRef.current) return;
         const code = editorRef.current.getValue();
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080';
+        const backendUrl = (process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080').replace(/\/+$/, '');
 
         setCompiling(true);
         setOutput('Running...');
