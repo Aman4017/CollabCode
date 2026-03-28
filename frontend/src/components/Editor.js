@@ -6,11 +6,8 @@ import 'codemirror/addon/edit/closetag';
 import 'codemirror/addon/edit/closebrackets';
 import 'codemirror/mode/javascript/javascript';
 import 'codemirror/mode/python/python';
-import 'codemirror/mode/clike/clike'; // C, C++, Java
-import { Socket } from 'socket.io-client';
+import 'codemirror/mode/clike/clike';
 import ACTIONS from '../Actions';
-
-// import '../codemirrors/lib/codemirror.css';
 
 
 const languageModes = {
@@ -28,10 +25,7 @@ const Editor = ({ socketRef, roomId, onCodeChange }) => {
   const [output, setOutput] = useState('');
 
   useEffect(() => {
-    if (editorRef.current) {
-      // If an editor instance already exists, do nothing
-      return;
-    }
+    if (editorRef.current) return;
 
     const init = () => {
       editorRef.current = Codemirror.fromTextArea(textareaRef.current, {
@@ -57,7 +51,6 @@ const Editor = ({ socketRef, roomId, onCodeChange }) => {
 
     init();
 
-    // Cleanup function to destroy the editor instance when the component unmounts
     return () => {
       if (editorRef.current) {
         editorRef.current.toTextArea();
@@ -82,7 +75,6 @@ const Editor = ({ socketRef, roomId, onCodeChange }) => {
     };
   }, [socketRef.current]);
 
-  // Effect to update CodeMirror mode based on selected language
   useEffect(() => {
     if (editorRef.current) {
       editorRef.current.setOption('mode', languageModes[selectedLanguage]);
@@ -91,21 +83,23 @@ const Editor = ({ socketRef, roomId, onCodeChange }) => {
 
   const handleCompile = async () => {
     const code = editorRef.current.getValue();
-    console.log(selectedLanguage);
-    const response = await fetch('http://localhost:8080/editor', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ code, input, language: selectedLanguage })
-    });
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080';
 
-    const data = await response.json();
-    setOutput(data.output);
+    try {
+      const response = await fetch(`${backendUrl}/api/compile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, input, language: selectedLanguage })
+      });
+      const data = await response.json();
+      setOutput(data.output);
+    } catch (err) {
+      setOutput('Error: Could not connect to the server.');
+    }
   };
 
   return (
-    <div >
+    <div>
       <select className='editor-container'
         onChange={(e) => setSelectedLanguage(e.target.value)}
         value={selectedLanguage}

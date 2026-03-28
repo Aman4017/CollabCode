@@ -9,7 +9,6 @@ import peer from '../service/peer';
 import ReactPlayer from 'react-player'
 
 
-
 const EditorPage = () => {
   const socketRef = useRef(null);
   const location = useLocation();
@@ -30,45 +29,27 @@ const EditorPage = () => {
     const offer = await peer.getOffer();
     socketRef.current.emit("user-call", {to: remoteSocketId, offer});
     setMyStream(stream);
-
-  }, [remoteSocketId, socketRef.current]);
-
+  }, [remoteSocketId]);
 
 
-  const handleIncommingCall = useCallback( async({from, offer})=>{
+  const handleIncommingCall = useCallback(async ({from, offer}) => {
     setRemoteSocketId(from);
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: true,
       video: true,
     });
-    console.log(stream);
     setMyStream(stream);
     const ans = await peer.getAnswer(offer);
+    socketRef.current.emit('call-accepted', {to: from, ans});
+  }, []);
 
-    socketRef.current.emit('call-accepted', {to:from, ans});
-  }, [socketRef.current]);
 
-
-  // const sendStreams = useCallback(() =>{
-  //   if(myStream){
-  //     for (const track of myStream.getTracks()){
-  //       peer.peer.addTrack(track, myStream);
-  //     }
-  //   }
-  // }, [myStream]);
-
-  const sendStreams = useCallback( async() => {
-    // Get existing senders from the peer connection
-    if(myStream){
+  const sendStreams = useCallback(async () => {
+    if (myStream) {
       const existingSenders = peer.peer.getSenders();
-      console.log("My Stream: ", myStream)
-    
       for (const track of myStream.getTracks()) {
-        // Check if this track is already being sent
         const senderExists = existingSenders.find(sender => sender.track === track);
-        
         if (!senderExists) {
-          console.log("Added Tracks", track)
           peer.peer.addTrack(track, myStream);
         }
       }
@@ -76,155 +57,117 @@ const EditorPage = () => {
   }, [myStream]);
 
 
-  const handleCallAccepted = useCallback (async ({from, ans})=>{
+  const handleCallAccepted = useCallback(async ({from, ans}) => {
     await peer.setLocalDescription(ans);
     sendStreams();
   }, [sendStreams]);
 
-  const handleNegoNeeded = useCallback (async ()=>{
-    // console.log("Nogo Running!")
+  const handleNegoNeeded = useCallback(async () => {
     const offer = await peer.getOffer();
-    socketRef.current.emit('peer-nego-needed', {offer, to:remoteSocketId});
-  }, [remoteSocketId, socketRef.current])
+    socketRef.current.emit('peer-nego-needed', {offer, to: remoteSocketId});
+  }, [remoteSocketId]);
 
-  const handleNegoIncomming = useCallback (async ({from, offer})=>{
+  const handleNegoIncomming = useCallback(async ({from, offer}) => {
     const ans = await peer.getAnswer(offer);
-    console.log(ans);
-    socketRef.current.emit('peer-nego-done', {to:from, ans});
-  }, [socketRef.current])
+    socketRef.current.emit('peer-nego-done', {to: from, ans});
+  }, []);
 
-  const handleNegoFinal = useCallback (async ({from, ans})=>{
+  const handleNegoFinal = useCallback(async ({from, ans}) => {
     await peer.setLocalDescription(ans);
-  }, [])
-
-
-  
-
-
-  useEffect(()=>{
-    // console.log("At Nego")
-    
-    peer.peer.addEventListener('negotiationneeded', handleNegoNeeded);
-
-    return ()=>{
-      peer.peer.removeEventListener('negotiationneeded', handleNegoNeeded)
-    }
-  }, [handleNegoNeeded]);
-
-
-  useEffect(()=>{
-    peer.peer.addEventListener('track', async (ev) =>{
-      const remoteStreams = ev.streams;
-      console.log("GOT TRACKS!!", remoteStreams[0]);
-      setRemoteStream(remoteStreams[0]);
-    });
-  }, [])
-
-
+  }, []);
 
 
   useEffect(() => {
-    
+    peer.peer.addEventListener('negotiationneeded', handleNegoNeeded);
+    return () => {
+      peer.peer.removeEventListener('negotiationneeded', handleNegoNeeded);
+    };
+  }, [handleNegoNeeded]);
+
+
+  useEffect(() => {
+    peer.peer.addEventListener('track', async (ev) => {
+      const remoteStreams = ev.streams;
+      setRemoteStream(remoteStreams[0]);
+    });
+  }, []);
+
+
+  useEffect(() => {
     const init = async () => {
-      socketRef.current = await initSocket();
-      
+      try {
+        socketRef.current = await initSocket();
+      } catch (err) {
+        console.error('Socket error', err);
+        toast.error('Socket connection failed, try again later.');
+        reactNavigator('/');
+        return;
+      }
 
-      socketRef.current.on('connect_error', handleErrors);
-      socketRef.current.on('connect_failed', handleErrors);
-
-      function handleErrors(e) {
+      socketRef.current.on('connect_error', (e) => {
         console.error('Socket error', e);
         toast.error('Socket connection failed, try again later.');
         reactNavigator('/');
-      }
+      });
 
       socketRef.current.emit(ACTIONS.JOIN, {
         roomId,
         userName: location.state?.userName,
       });
 
-      socketRef.current.on(ACTIONS.JOINED, ({clients, userName, socketId})=>{
-        if(userName !== location.state?.userName){
+      socketRef.current.on(ACTIONS.JOINED, ({clients, userName, socketId}) => {
+        if (userName !== location.state?.userName) {
           toast.success(`${userName} joined the room.`);
-          // console.log(`${userName} joined`);
           setRemoteSocketId(socketId);
-
         }
-
         setClients(clients);
-
         socketRef.current.emit(ACTIONS.SYNC_CODE, {
           code: codeRef.current,
           socketId,
         });
       });
 
-      socketRef.current.on(ACTIONS.DISCONNECTED, ({socketId, userName})=>{
+      socketRef.current.on(ACTIONS.DISCONNECTED, ({socketId, userName}) => {
         toast.success(`${userName} left the room.`);
-        setClients((prev)=>{
-          return prev.filter(
-            (client) => client.socketId !== socketId
-            );
-        });
+        setClients((prev) => prev.filter((client) => client.socketId !== socketId));
       });
 
-
-    
-    
-    socketRef.current.on('incomming-call', handleIncommingCall);
-
-    socketRef.current.on('call-accepted', handleCallAccepted);
-
-    
-    socketRef.current.on("peer-nego-needed", handleNegoIncomming);
-
-    socketRef.current.on('peer-nego-final', handleNegoFinal);
-
+      socketRef.current.on('incomming-call', handleIncommingCall);
+      socketRef.current.on('call-accepted', handleCallAccepted);
+      socketRef.current.on('peer-nego-needed', handleNegoIncomming);
+      socketRef.current.on('peer-nego-final', handleNegoFinal);
     };
 
-    
+    init();
 
-
-    
-    // Clean up function to disconnect socket when component unmounts
     return () => {
       if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-      init();
-
-      return () => {
-        socketRef.current.disconnect();
         socketRef.current.off(ACTIONS.JOINED);
         socketRef.current.off(ACTIONS.DISCONNECTED);
         socketRef.current.off('incomming-call', handleIncommingCall);
         socketRef.current.off('call-accepted', handleCallAccepted);
-        
         socketRef.current.off('peer-nego-needed', handleNegoIncomming);
         socketRef.current.off('peer-nego-final', handleNegoFinal);
+        socketRef.current.disconnect();
+        socketRef.current = null;
       }
     };
-
-  }, [reactNavigator, location.state?.userName, roomId]);
-
+  }, [reactNavigator, location.state?.userName, roomId, handleIncommingCall, handleCallAccepted, handleNegoIncomming, handleNegoFinal]);
 
 
-
-  async function copyRoomID(){
+  async function copyRoomID() {
     try {
       await navigator.clipboard.writeText(roomId);
-      toast.success('Room ID copied')
+      toast.success('Room ID copied');
     } catch (error) {
-      toast.error('Could not copy Room ID')
+      toast.error('Could not copy Room ID');
     }
   }
 
-  async function leaveRoom(){
+  async function leaveRoom() {
     reactNavigator('/');
     window.location.reload();
   }
-  
 
   if (!location.state) {
     return <Navigate to="/" />;
@@ -247,15 +190,12 @@ const EditorPage = () => {
             ))}
           </div>
         </div>
-        {/* {remoteSocketId && <button className='btn' onClick={handleCallUser}>CALL</button>} */}
-        
-        
         <button className='btn copyBtn' onClick={copyRoomID}>Copy ROOM ID</button>
         <button className='btn leaveBtn' onClick={leaveRoom}>Leave ROOM</button>
       </div>
       <div className="editorWrap">
         <div className="editorContainer">
-          <Editor socketRef = {socketRef} rooId = {roomId} onCodeChange = {(code)=>{codeRef.current = code;}}/>
+          <Editor socketRef={socketRef} roomId={roomId} onCodeChange={(code) => { codeRef.current = code; }} />
           <div className="player">
             <div className="btnDiv">
               <button className='btn opnBtn' onClick={handleCallUser}>Open Call</button>
@@ -270,7 +210,7 @@ const EditorPage = () => {
                 width="100%"
                 height="100%"
               />
-            </div>  
+            </div>
             <div className="playerWrapper">
               <ReactPlayer
                 className='reactPlayer'
