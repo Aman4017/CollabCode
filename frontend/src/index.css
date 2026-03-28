@@ -1,3 +1,35 @@
+/*
+ * index.css — Global CSS variables, resets, and base styles.
+ *
+ * WHAT THIS FILE DOES:
+ * --------------------
+ * This file defines the foundation of the app's visual design:
+ *
+ * 1. CSS VARIABLES (:root): A central palette of colors, sizes, and effects.
+ *    These variables are used throughout App.css so changing a color here
+ *    changes it everywhere. The theme is inspired by the "Dracula" color scheme
+ *    (a popular dark theme used in many code editors).
+ *
+ * 2. CSS RESET (*): Removes all default browser margins and padding, and sets
+ *    box-sizing to border-box (so padding is included in element widths).
+ *
+ * 3. BODY STYLES: Sets the dark background, white text, and system font stack.
+ *
+ * 4. SCROLLBAR STYLES: Customizes the scrollbar to be thin and match the dark theme.
+ *
+ * COLOR PALETTE (Dracula Theme):
+ * --------------------------------
+ * --bg-primary:     #1e1f29 (darkest — main background)
+ * --bg-secondary:   #282a36 (slightly lighter — sidebar, cards)
+ * --bg-tertiary:    #343746 (hover states)
+ * --text-primary:   #f8f8f2 (main text — almost white)
+ * --text-secondary: #6272a4 (muted text — labels, timestamps)
+ * --accent-purple:  #bd93f9 (primary accent — buttons, highlights)
+ * --accent-cyan:    #8be9fd (secondary accent — links, user names)
+ * --accent-green:   #50fa7b (success — Run button, labels)
+ * --accent-red:     #ff5555 (danger — Leave button, errors)
+ */
+
 :root {
     --bg-primary: #1e1f29;
     --bg-secondary: #282a36;
@@ -19,6 +51,7 @@
     --transition: all 0.2s ease;
 }
 
+/* CSS Reset — removes all default browser margins/padding */
 *,
 *::before,
 *::after {
@@ -37,6 +70,7 @@ body {
     overflow: hidden;
 }
 
+/* Custom scrollbar for WebKit browsers (Chrome, Edge, Safari) */
 ::-webkit-scrollbar {
     width: 6px;
 }

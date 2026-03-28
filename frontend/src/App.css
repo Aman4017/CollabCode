@@ -1,7 +1,38 @@
+/*
+ * App.css — All component-specific styles for the CodeCollab application.
+ *
+ * WHAT THIS FILE DOES:
+ * --------------------
+ * Contains all CSS rules for the app's UI components, organized by section:
+ *   1. HOME PAGE        — Landing page with join/create room form
+ *   2. BUTTONS          — Reusable button styles
+ *   3. EDITOR PAGE      — Grid layout for sidebar + editor
+ *   4. SIDEBAR          — Connected users, chat, and action buttons
+ *   5. CHAT             — Chat messages and input area
+ *   6. EDITOR AREA      — CodeMirror editor and toolbar
+ *   7. CODE RUNNER       — Input/Output textareas for compilation
+ *   8. RESPONSIVE       — Media queries for tablet and mobile layouts
+ *
+ * LAYOUT APPROACH:
+ * ----------------
+ * - CSS Grid for the main two-column layout (sidebar + editor)
+ * - Flexbox for internal component layouts
+ * - CSS custom properties (variables) from index.css for consistent theming
+ * - Media queries at 900px, 768px, and 480px for responsive design
+ *
+ * HOW RESPONSIVE DESIGN WORKS:
+ * ----------------------------
+ * - Desktop (> 900px):  Sidebar (280px) | Editor (remaining space)
+ * - Tablet (768-900px): Sidebar (240px) | Editor (remaining space)
+ * - Mobile (< 768px):   Full-width editor, sidebar slides in from left as an overlay
+ */
+
+
 /* ============================================
    HOME PAGE
    ============================================ */
 
+/* Centering container for the login form with a subtle gradient background */
 .homepageWrapper {
     display: flex;
     align-items: center;
@@ -14,6 +45,7 @@
         var(--bg-primary);
 }
 
+/* Card container for the form inputs */
 .formWrapper {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
@@ -24,6 +56,7 @@
     box-shadow: var(--shadow);
 }
 
+/* Logo and tagline area at the top of the form */
 .logoHeader {
     text-align: center;
     margin-bottom: 24px;
@@ -42,6 +75,7 @@
     letter-spacing: 0.5px;
 }
 
+/* "Paste Invitation ROOM ID" label */
 .mainLabel {
     font-size: 14px;
     font-weight: 500;
@@ -49,11 +83,13 @@
     margin-bottom: 16px;
 }
 
+/* Vertical stack for Room ID input, Username input, and Join button */
 .inputGroup {
     display: flex;
     flex-direction: column;
 }
 
+/* Styled text inputs for Room ID and Username */
 .inputBox {
     padding: 12px 16px;
     border-radius: var(--radius);
@@ -67,6 +103,7 @@
     margin-bottom: 12px;
 }
 
+/* Purple glow on input focus */
 .inputBox:focus {
     border-color: var(--accent-purple);
     box-shadow: 0 0 0 3px rgba(189, 147, 249, 0.15);
@@ -80,6 +117,7 @@
    BUTTONS
    ============================================ */
 
+/* Base button style used by all buttons (.joinBtn, .copyBtn, .leaveBtn, etc.) */
 .btn {
     border: none;
     padding: 10px 20px;
@@ -95,11 +133,13 @@
     gap: 6px;
 }
 
+/* Disabled state — reduces opacity and changes cursor */
 .btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
 }
 
+/* Purple "Join Room" button — full width */
 .joinBtn {
     background: var(--accent-purple);
     color: var(--bg-primary);
@@ -109,12 +149,14 @@
     margin-bottom: 4px;
 }
 
+/* Hover lift effect with shadow */
 .joinBtn:hover:not(:disabled) {
     background: #a77bfa;
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(189, 147, 249, 0.3);
 }
 
+/* "If you don't have an invite..." text */
 .createInfo {
     text-align: center;
     margin-top: 16px;
@@ -122,6 +164,7 @@
     font-size: 13px;
 }
 
+/* "new room" link-style button */
 .createNewBtn {
     background: none;
     border: none;
@@ -143,6 +186,11 @@
    EDITOR PAGE LAYOUT
    ============================================ */
 
+/*
+ * Main grid: sidebar (280px) | editor (remaining width)
+ * height: 100vh fills the full viewport height
+ * overflow: hidden prevents page scrolling (internal scrolling only)
+ */
 .mainWrap {
     display: grid;
     grid-template-columns: 280px 1fr;
@@ -150,7 +198,7 @@
     overflow: hidden;
 }
 
-/* Sidebar Toggle (mobile) */
+/* Hamburger menu button — hidden on desktop, shown on mobile */
 .sidebarToggle {
     display: none;
     position: fixed;
@@ -174,6 +222,7 @@
     background: var(--bg-tertiary);
 }
 
+/* Semi-transparent overlay behind the mobile sidebar */
 .sidebarOverlay {
     position: fixed;
     inset: 0;
@@ -186,6 +235,7 @@
    SIDEBAR
    ============================================ */
 
+/* Left sidebar — uses flexbox column layout to stack header, chat, and actions */
 .aside {
     background: var(--bg-secondary);
     padding: 16px;
@@ -197,10 +247,12 @@
     overflow: hidden;
 }
 
+/* Header section does not shrink when the chat grows */
 .asideHeader {
     flex-shrink: 0;
 }
 
+/* Logo with bottom border separator */
 .logo {
     padding-bottom: 12px;
     margin-bottom: 12px;
@@ -211,6 +263,7 @@
     height: 50px;
 }
 
+/* Section headings (CONNECTED, CHAT) */
 .aside h3 {
     font-size: 11px;
     text-transform: uppercase;
@@ -223,6 +276,7 @@
     gap: 8px;
 }
 
+/* Numbered badge next to "Connected" heading */
 .badge {
     background: var(--accent-purple);
     color: var(--bg-primary);
@@ -236,12 +290,14 @@
     margin-bottom: 12px;
 }
 
+/* Wrapping grid for user avatars */
 .clientList {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
 }
 
+/* Individual connected user chip (avatar + name) */
 .client {
     display: flex;
     align-items: center;
@@ -264,6 +320,7 @@
    CHAT
    ============================================ */
 
+/* Chat section grows to fill available space (flex: 1) */
 .chatSection {
     flex: 1;
     min-height: 0;
@@ -273,6 +330,7 @@
     padding-top: 12px;
 }
 
+/* Scrollable message list */
 .chatMessages {
     flex: 1;
     overflow-y: auto;
@@ -283,6 +341,7 @@
     margin-bottom: 8px;
 }
 
+/* Placeholder text when no messages */
 .chatEmpty {
     color: var(--text-secondary);
     font-size: 12px;
@@ -291,6 +350,7 @@
     margin-top: 20px;
 }
 
+/* Individual chat message bubble */
 .chatMsg {
     display: flex;
     flex-direction: column;
@@ -301,12 +361,14 @@
     align-self: flex-start;
 }
 
+/* Own messages appear on the right with purple tint */
 .chatMsg.own {
     align-self: flex-end;
     background: rgba(189, 147, 249, 0.15);
     border: 1px solid rgba(189, 147, 249, 0.25);
 }
 
+/* Header row: username and timestamp */
 .chatMsgHeader {
     display: flex;
     justify-content: space-between;
@@ -315,6 +377,7 @@
     margin-bottom: 2px;
 }
 
+/* Sender name in cyan (others) or purple (own) */
 .chatUser {
     font-size: 10px;
     font-weight: 700;
@@ -336,6 +399,7 @@
     word-break: break-word;
 }
 
+/* Chat input row: text input + send button */
 .chatInputArea {
     display: flex;
     gap: 6px;
@@ -377,7 +441,7 @@
 }
 
 /* ============================================
-   SIDEBAR ACTIONS
+   SIDEBAR ACTIONS (Copy Room ID, Leave Room)
    ============================================ */
 
 .asideActions {
@@ -389,6 +453,7 @@
     flex-shrink: 0;
 }
 
+/* Outline-style button — cyan border, fills on hover */
 .copyBtn {
     background: transparent;
     border: 1px solid var(--accent-cyan);
@@ -401,6 +466,7 @@
     color: var(--bg-primary);
 }
 
+/* Outline-style button — red border, fills on hover */
 .leaveBtn {
     background: transparent;
     border: 1px solid var(--accent-red);
@@ -417,6 +483,7 @@
    EDITOR AREA
    ============================================ */
 
+/* Right panel — fills remaining grid space, stacks toolbar + editor + runner */
 .editorWrap {
     display: flex;
     flex-direction: column;
@@ -425,6 +492,7 @@
     position: relative;
 }
 
+/* Container for toolbar, editor area, and code runner */
 .editorPanel {
     display: flex;
     flex-direction: column;
@@ -432,6 +500,7 @@
     overflow: hidden;
 }
 
+/* Toolbar row: language selector and Run button */
 .editorToolbar {
     display: flex;
     align-items: center;
@@ -442,6 +511,7 @@
     flex-shrink: 0;
 }
 
+/* Language dropdown select */
 .langSelect {
     padding: 6px 12px;
     background: var(--bg-primary);
@@ -460,6 +530,7 @@
     border-color: var(--accent-purple);
 }
 
+/* Green "Run" button */
 .runBtn {
     background: var(--accent-green);
     color: var(--bg-primary);
@@ -474,12 +545,14 @@
     box-shadow: 0 2px 8px rgba(80, 250, 123, 0.3);
 }
 
+/* Container for the CodeMirror editor — uses absolute positioning to fill space */
 .editorArea {
     flex: 1;
     overflow: hidden;
     position: relative;
 }
 
+/* Override CodeMirror's default sizing to fill the container exactly */
 .editorArea .CodeMirror {
     position: absolute;
     top: 0;
@@ -492,9 +565,10 @@
 }
 
 /* ============================================
-   CODE RUNNER (Input / Output)
+   CODE RUNNER (Input / Output panels)
    ============================================ */
 
+/* Side-by-side Input/Output panels at the bottom of the editor */
 .codeRunner {
     display: flex;
     gap: 1px;
@@ -505,6 +579,7 @@
     min-height: 120px;
 }
 
+/* Individual Input or Output panel */
 .runnerSection {
     display: flex;
     flex-direction: column;
@@ -513,6 +588,7 @@
     padding: 10px 14px;
 }
 
+/* Label above each textarea (e.g., "INPUT", "OUTPUT") */
 .runnerSection label {
     font-size: 11px;
     text-transform: uppercase;
@@ -523,6 +599,7 @@
     flex-shrink: 0;
 }
 
+/* Monospace textarea for code input/output */
 .runnerTextArea {
     flex: 1;
     background: var(--bg-primary);
@@ -549,24 +626,28 @@
 }
 
 /* ============================================
-   RESPONSIVE
+   RESPONSIVE DESIGN
    ============================================ */
 
+/* Tablet: slightly narrower sidebar */
 @media (max-width: 900px) {
     .mainWrap {
         grid-template-columns: 240px 1fr;
     }
 }
 
+/* Mobile: sidebar becomes a slide-out overlay */
 @media (max-width: 768px) {
     .mainWrap {
         grid-template-columns: 1fr;
     }
 
+    /* Show the hamburger menu button */
     .sidebarToggle {
         display: flex;
     }
 
+    /* Sidebar becomes a fixed overlay that slides in from the left */
     .aside {
         position: fixed;
         left: 0;
@@ -579,11 +660,13 @@
         box-shadow: none;
     }
 
+    /* When open, slide into view */
     .aside.open {
         transform: translateX(0);
         box-shadow: 8px 0 24px rgba(0, 0, 0, 0.5);
     }
 
+    /* Offset toolbar to not overlap with the hamburger button */
     .editorToolbar {
         padding-left: 56px;
     }
@@ -593,6 +676,7 @@
     }
 }
 
+/* Small mobile: tighter spacing, stacked I/O panels */
 @media (max-width: 480px) {
     .formWrapper {
         padding: 24px 20px;
@@ -602,6 +686,7 @@
         height: 45px;
     }
 
+    /* Stack Input/Output panels vertically instead of side by side */
     .codeRunner {
         flex-direction: column;
         height: 200px;
